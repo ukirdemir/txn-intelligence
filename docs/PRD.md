@@ -60,7 +60,7 @@ Assumed cost matrix (`src/txn_intelligence/config.py`):
 | False alert | 5 | Review time and customer friction (assumed) |
 | Flagged real fraud | 1 | Review effort that is still worth spending |
 
-The 20:1 ratio between a missed fraud and a false alert drives the threshold. It is an assumption, not a measurement. The decision is sensitive to it, so the next analysis (see section 8) is to sweep the ratio and report how the threshold and cost move.
+The 20:1 ratio between a missed fraud and a false alert drives the threshold. It is an assumption, not a measurement. A sweep from 2:1 to 100:1 (section 6) shows how much the choice matters.
 
 ## 6. What the results say
 
@@ -69,6 +69,8 @@ The 20:1 ratio between a missed fraud and a false alert drives the threshold. It
 - A looser rule (amount greater than or equal to balance) fails completely, because 81% of legitimate transactions satisfy it in this dataset.
 - Feature ablation shows the score depends almost entirely on one simulator pattern: the amount equals the sender's balance. The pattern never occurs among legitimate PaySim transactions, so it will not transfer to real fraud.
 - A first experiment that used post-transaction balances scored higher still and was discarded as unrealistic, because those balances are unknown before approval.
+- Cost sensitivity (missed-fraud cost 10 to 500 with the false-alert cost fixed at 5, so ratios from 2:1 to 100:1): gradient boosting has the lowest cost at every ratio, so the model ranking does not depend on the cost assumption. The size of its advantage does: its cost is 17% lower than the rule's at 2:1 (3.5 against 4.2 per 1k), 63% lower at 20:1 (4.6 against 12.5) and 81% lower at 100:1 (9.6 against 49.6). If misses are cheap, the rule alone gives up very little.
+- Gradient boosting flags the same transactions at every ratio (3.33 alerts per 1k, 16 missed frauds) because PaySim fraud is almost perfectly separable. Real data would move the threshold far more. Logistic regression shows the expected behaviour: alerts rise from 1.89 to 7.61 per 1k and misses fall from 1,963 to 378 as a miss gets costlier. The looser rule (amount greater than or equal to balance) never flags anything at any ratio.
 
 **Product implication:** the API returns both the model decision and the rule flag, so a consumer can see when they agree and when they do not. If real costs make the extra 8 cost units per 1k (rule 12.5 against model 4.6) not worth the added complexity, shipping the rule alone would be a legitimate decision.
 
@@ -81,7 +83,7 @@ See [ROADMAP.md](ROADMAP.md). Done: data layer, baseline, model comparison, abla
 | Risk or question | Why it matters | Planned handling |
 |---|---|---|
 | Synthetic data | Real fraud adapts and is messier | State the limitation clearly; do not claim transfer |
-| Cost assumptions | Threshold and ranking of models depend on them | Sensitivity sweep over the false-negative to false-alert ratio |
+| Cost assumptions | Threshold and ranking of models depend on them | Done: sweep from 2:1 to 100:1. Ranking is stable on PaySim, but see the separability caveat in section 6 |
 | Scores are not calibrated probabilities | Cannot be read as "probability of fraud" | Calibrate on validation data before any probability use |
 | Label delay and drift | Fraud labels arrive late and patterns change | Drift monitoring (M5); retraining trigger |
 | Fairness and explainability | A regulated setting needs both | Not analysed yet; add slice-level metrics and reason codes |

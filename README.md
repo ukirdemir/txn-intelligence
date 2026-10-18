@@ -2,16 +2,14 @@
 
 Fraud/anomaly detection and spending insights for card transactions, built as a small end-to-end ML product: data, model, SQL analytics, cost-aware evaluation, API, and monitoring.
 
-> **Status:** early scaffold. Sections marked `TODO` are filled in as milestones in [docs/ROADMAP.md](docs/ROADMAP.md) are completed.
+> **Status:** data layer, models, feature ablation, scoring API and Docker are done. The LLM assistant and drift monitoring are planned. See [docs/ROADMAP.md](docs/ROADMAP.md).
 > **Data:** public or synthetic transaction data only. No real personal financial data is used or committed.
 
 ## Problem
 
-TODO (2-3 sentences): who loses money to fraud, why accuracy is the wrong metric on imbalanced data, and what decision the model supports (block / review / allow).
+Card fraud is rare but expensive: missing one fraud costs far more than reviewing a legitimate transaction, and accuracy is misleading when only a fraction of a percent of transactions are fraudulent. This project scores each transaction before approval and picks the decision threshold that minimises an explicit expected cost on a validation period, then reports results on a later test period.
 
 ## Results
-
-TODO: replace with real numbers once the baseline and model are trained.
 
 Held-out test period (last 20% of PaySim by time: 1.27M transactions, 4,254 frauds). Features are limited to information available **before approval**. Thresholds are tuned on a separate validation period by minimising an assumed cost matrix.
 
@@ -40,7 +38,23 @@ Gradient boosting, test period, pre-approval features, with feature groups remov
 
 Permutation importance puts almost all of the signal in two features: `orig_would_be_emptied` (PR-AUC drop 0.994) and `amount_to_orig_balance` (0.990). The decisive pattern is a transaction whose amount exactly equals the sender's balance. Among TRANSFER and CASH_OUT transactions with a positive balance, that holds for 8,018 of 8,172 fraud cases and for none of 1,453,655 legitimate ones, while the looser "amount greater than or equal to balance" holds for 81% of legitimate cases (PaySim does not stop legitimate transactions from exceeding the balance). Importance is shared between the two correlated features, so read the individual numbers loosely. Removing the explicit features hurts only partly because the model can rebuild them from `log_amount` and `log_old_balance_orig`. Destination features, transaction type and hour add essentially nothing once balance information is present. This is a property of PaySim's simulated fraud, not evidence the approach would work on real card fraud. Single run, no confidence intervals yet.
 
-Include a demo GIF or screenshot of the API / dashboard here.
+### Cost sensitivity
+
+Cost per 1,000 transactions when a missed fraud costs 10, 100 or 500 (false alert fixed at 5; thresholds re-tuned on validation each time):
+
+| Missed-fraud cost (ratio) | One-line rule | Logistic regression | Gradient boosting |
+|---|---|---|---|
+| 10 (2:1) | 4.2 | 17.7 | 3.5 |
+| 100 (20:1) | 12.5 | 77.4 | 4.6 |
+| 500 (100:1) | 49.6 | 174.4 | 9.6 |
+
+Gradient boosting has the lowest cost at every ratio from 2:1 to 100:1, but its advantage over the rule shrinks as misses get cheaper (17% lower at 2:1, 81% lower at 100:1). It flags the same transactions at every ratio because PaySim fraud is almost perfectly separable, so on real data the threshold would matter far more.
+
+Example `/score` response for a transfer that sends the sender's whole balance:
+
+```json
+{"fraud_score": 0.9984, "flagged": true, "threshold": 0.9977, "rule_flag": true, "model_version": "hgb-pre-0.1.0"}
+```
 
 Compare logistic regression, gradient boosting and the PyTorch MLP on identical splits:
 
@@ -56,6 +70,12 @@ Feature ablation (which feature groups drive the scores):
 
 ```bash
 python -m txn_intelligence.ablation --db data/processed/paysim.duckdb --permutation
+```
+
+Cost sensitivity (how the threshold and model ranking change if a missed fraud costs 10 to 500 instead of 100):
+
+```bash
+python -m txn_intelligence.sensitivity --db data/processed/paysim.duckdb
 ```
 
 Train and save the serving model (gradient boosting, pre-approval features), then run the API:
@@ -87,10 +107,10 @@ The model bundle is a pickle: train it with the same scikit-learn version the im
 ## What's inside
 
 - **Model:** baseline plus a PyTorch classifier, evaluated with precision-recall metrics and a cost-based decision threshold.
-- **LLM layer:** transaction categorization and a natural-language "ask your spending" assistant (local model, optional).
+- **LLM layer (planned):** transaction categorization and a natural-language "ask your spending" assistant (local model, optional).
 - **SQL analytics:** DuckDB queries over the transaction table (`sql/`).
 - **Serving:** FastAPI service in Docker with a `/score` endpoint.
-- **Monitoring:** drift checks on score and feature distributions (TODO).
+- **Monitoring (planned):** drift checks on score and feature distributions.
 
 ## Quickstart
 
@@ -133,4 +153,4 @@ data/                   data instructions (data itself is gitignored)
 
 ## Limitations
 
-TODO: be explicit. Synthetic data, class imbalance assumptions, no real-time feature store, etc.
+PaySim is synthetic and its fraud follows a simple pattern, so these results do not transfer to real fraud. Single run, no confidence intervals. Costs are assumed. Scores are not calibrated probabilities. There is no drift monitoring or real-time feature store yet.
