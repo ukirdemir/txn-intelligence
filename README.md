@@ -126,7 +126,16 @@ Results (30 questions, temperature 0, one run, one retry allowed):
 | qwen2.5-coder:3b | 100.0% | 86.7% | 0.5 |
 | qwen2.5-coder:7b | 100.0% | 93.3% | 3.4 |
 
-Every failure was a wrong query, not invalid SQL. Both models missed "highest number of fraud cases in any single step" (it needs a nested aggregate). The 3b model also used `/` instead of `//`, averaged instead of taking the median, and dropped the denominator in a percentage. The 7b model used the balance before the transaction where the question meant the balance after. The eval set is small and the prompt was not tuned against it, so differences of one or two questions are noise.
+After adding two prompt rules (balance after/before; nested counting per step) and one example, the same 30 questions gave:
+
+| Model | Valid SQL | Execution accuracy |
+|---|---|---|
+| qwen2.5-coder:3b | 100.0% | 90.0% |
+| qwen2.5-coder:7b | 100.0% | 100.0% |
+
+These rules were written after seeing the failures above, on the same questions, so the second table is optimistic: it measures the prompt on the set it was tuned against. A fresh held-out set is needed for an unbiased number.
+
+Failures in the first run were wrong queries, not invalid SQL. Both models missed "highest number of fraud cases in any single step" (it needs a nested aggregate). The 3b model also used `/` instead of `//`, averaged instead of taking the median, and dropped the denominator in a percentage. The 7b model used the balance before the transaction where the question meant the balance after. The eval set is small and the prompt was not tuned against it, so differences of one or two questions are noise.
 
 ## What's inside
 

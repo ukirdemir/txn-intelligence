@@ -34,6 +34,8 @@ Rules:
 - Use only the table `transactions`.
 - Use // for integer division and % for modulo.
 - For percentages use expressions like 100.0 * AVG(is_fraud).
+- "After the transaction" means new_balance_orig or new_balance_dest; "before" means old_balance_*.
+- For "highest number of X in any single step", count per step in a subquery, then take MAX of the counts.
 
 Examples:
 Question: How many CASH_IN transactions are there?
@@ -41,6 +43,9 @@ SELECT COUNT(*) FROM transactions WHERE type = 'CASH_IN'
 
 Question: What is the average amount of TRANSFER transactions?
 SELECT AVG(amount) FROM transactions WHERE type = 'TRANSFER'
+
+Question: What is the highest number of PAYMENT transactions in any single step?
+SELECT MAX(c) FROM (SELECT COUNT(*) AS c FROM transactions WHERE type = 'PAYMENT' GROUP BY step)
 """
 
 FORBIDDEN = re.compile(
