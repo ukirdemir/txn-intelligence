@@ -104,10 +104,34 @@ The API is then at `http://localhost:8765` (host port 8765 is mapped to the cont
 
 The model bundle is a pickle: train it with the same scikit-learn version the image installs, and only load bundles you created yourself.
 
+### Ask your transactions (stage 1: question to SQL)
+
+A local LLM (Ollama, CPU is enough for small Qwen models) turns a plain-English question into one DuckDB query. Generated SQL is never trusted: it must be a single SELECT with no comments or file-access keywords, runs on a read-only connection with external access disabled, is row-capped and time-limited, and gets one retry with the error fed back.
+
+```bash
+ollama pull qwen2.5-coder:3b
+python -m txn_intelligence.ask "How many fraud cases are there per transaction type?"
+```
+
+A 30-question evaluation set with reference SQL measures execution accuracy (results compared, not SQL text):
+
+```bash
+python -m txn_intelligence.eval_assistant --models qwen2.5-coder:3b qwen2.5-coder:7b
+```
+
+Results (30 questions, temperature 0, one run, one retry allowed):
+
+| Model | Valid SQL | Execution accuracy | Mean seconds per question |
+|---|---|---|---|
+| qwen2.5-coder:3b | 100.0% | 86.7% | 0.5 |
+| qwen2.5-coder:7b | 100.0% | 93.3% | 3.4 |
+
+Every failure was a wrong query, not invalid SQL. Both models missed "highest number of fraud cases in any single step" (it needs a nested aggregate). The 3b model also used `/` instead of `//`, averaged instead of taking the median, and dropped the denominator in a percentage. The 7b model used the balance before the transaction where the question meant the balance after. The eval set is small and the prompt was not tuned against it, so differences of one or two questions are noise.
+
 ## What's inside
 
 - **Model:** baseline plus a PyTorch classifier, evaluated with precision-recall metrics and a cost-based decision threshold.
-- **LLM layer (planned):** transaction categorization and a natural-language "ask your spending" assistant (local model, optional).
+- **LLM layer (in progress):** a local-model assistant that answers questions about the transactions through validated, read-only SQL (stage 1 written; see above).
 - **SQL analytics:** DuckDB queries over the transaction table (`sql/`).
 - **Serving:** FastAPI service in Docker with a `/score` endpoint.
 - **Monitoring (planned):** drift checks on score and feature distributions.
