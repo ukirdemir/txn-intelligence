@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Data and artifacts are never committed (see data/README.md)
+data/raw/
+data/processed/
+artifacts/
+*.duckdb
+*.pt

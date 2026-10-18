@@ -1,0 +1,9 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8765:8000"  # host port 8765 -> container port 8000
+    environment:
+      - MODEL_PATH=/app/artifacts/model.joblib
+    volumes:
+      - ./artifacts:/app/artifacts:ro
