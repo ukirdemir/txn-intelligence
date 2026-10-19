@@ -21,6 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 # torch is only needed for the MLP experiments, so the serving image stays small.
 dl = ["torch>=2.2"]
+chat = ["gradio>=4"]
 dev = ["pytest>=8", "ruff>=0.4", "httpx>=0.27", "torch>=2.2"]
 
 [tool.setuptools.packages.find]

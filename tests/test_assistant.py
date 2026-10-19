@@ -11,6 +11,7 @@ from txn_intelligence.eval_assistant import (
     results_match,
 )
 from txn_intelligence.nl2sql import (
+    REFUSAL,
     LLMUnavailable,
     UnsafeSQL,
     ask,
@@ -97,6 +98,19 @@ def test_ask_unsafe_not_executed(db_path):
     assert out["error"] is not None
     assert out["rows"] is None
     assert run_query(db_path, "SELECT COUNT(*) FROM transactions").iloc[0, 0] > 0
+
+
+def test_ask_refusal_not_retried(db_path):
+    calls = []
+
+    def llm(messages):
+        calls.append(1)
+        return "REFUSE"
+
+    out = ask("delete everything", db_path, llm, max_retries=1)
+    assert out["error"] == REFUSAL
+    assert out["sql"] == ""
+    assert len(calls) == 1
 
 
 def test_ask_retries_after_failure(db_path):

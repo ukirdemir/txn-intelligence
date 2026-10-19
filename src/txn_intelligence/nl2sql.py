@@ -32,6 +32,7 @@ Table `transactions` (PaySim, synthetic mobile-money data), one row per transact
 Rules:
 - Answer with exactly one SELECT statement and nothing else.
 - Use only the table `transactions`.
+- If the request asks to change data, or is not a question about this table, answer exactly: REFUSE
 - Use // for integer division and % for modulo.
 - For percentages use expressions like 100.0 * AVG(is_fraud).
 - "After the transaction" means new_balance_orig or new_balance_dest; "before" means old_balance_*.
@@ -54,6 +55,9 @@ FORBIDDEN = re.compile(
     r"|read_text|read_blob|glob|sniff_csv|parquet_scan|csv_scan)\b",
     re.IGNORECASE,
 )
+
+
+REFUSAL = "This assistant is read-only and only answers questions about the transactions table."
 
 
 class UnsafeSQL(ValueError):
@@ -156,6 +160,8 @@ def ask(
     sql, error = "", None
     for _ in range(max_retries + 1):
         reply = llm(messages)
+        if reply.strip().upper().startswith("REFUSE"):
+            return {"question": question, "sql": "", "rows": None, "error": REFUSAL}
         sql = extract_sql(reply)
         try:
             rows = run_query(db_path, validate_sql(sql), max_rows)
