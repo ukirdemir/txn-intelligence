@@ -135,6 +135,15 @@ After adding two prompt rules (balance after/before; nested counting per step) a
 
 These rules were written after seeing the failures above, on the same questions, so the second table is optimistic: it measures the prompt on the set it was tuned against. A fresh held-out set is needed for an unbiased number.
 
+On a held-out set of 12 questions written before either model saw them, with no prompt changes afterwards (`--set held-out`, run once):
+
+| Model | Valid SQL | Execution accuracy |
+|---|---|---|
+| qwen2.5-coder:3b | 100.0% (12/12) | 91.7% (11/12) |
+| qwen2.5-coder:7b | 100.0% (12/12) | 100.0% (12/12) |
+
+The 3b miss used `new_balance_dest` where the question said "before". Twelve questions is a small sample: 12 of 12 is consistent with a true accuracy anywhere from about 75% up, so treat this as "roughly 90% or better on simple aggregate questions", not as a precise figure. The questions are simple single-table aggregates; joins and multi-step questions were not tested.
+
 Failures in the first run were wrong queries, not invalid SQL. Both models missed "highest number of fraud cases in any single step" (it needs a nested aggregate). The 3b model also used `/` instead of `//`, averaged instead of taking the median, and dropped the denominator in a percentage. The 7b model used the balance before the transaction where the question meant the balance after. The eval set is small and the prompt was not tuned against it, so differences of one or two questions are noise.
 
 ## What's inside

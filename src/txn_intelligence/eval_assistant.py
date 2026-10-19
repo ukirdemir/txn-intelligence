@@ -154,6 +154,60 @@ EVAL_SET = [
 ]
 
 
+HELD_OUT_SET = [
+    {
+        "question": "How many transactions are of type DEBIT?",
+        "sql": "SELECT COUNT(*) FROM transactions WHERE type = 'DEBIT'",
+    },
+    {
+        "question": "What is the total amount of CASH_OUT transactions?",
+        "sql": "SELECT SUM(amount) FROM transactions WHERE type = 'CASH_OUT'",
+    },
+    {
+        "question": "What is the average amount of fraud transactions of type TRANSFER?",
+        "sql": "SELECT AVG(amount) FROM transactions WHERE is_fraud = 1 AND type = 'TRANSFER'",
+    },
+    {
+        "question": "How many distinct receiver accounts are there?",
+        "sql": "SELECT COUNT(DISTINCT name_dest) FROM transactions",
+    },
+    {
+        "question": "What is the fraud rate as a percentage among CASH_OUT transactions?",
+        "sql": "SELECT 100.0 * AVG(is_fraud) FROM transactions WHERE type = 'CASH_OUT'",
+    },
+    {
+        "question": "How many transactions have an amount below 100?",
+        "sql": "SELECT COUNT(*) FROM transactions WHERE amount < 100",
+    },
+    {
+        "question": "What is the highest number of transactions in any single step?",
+        "sql": "SELECT MAX(c) FROM (SELECT COUNT(*) AS c FROM transactions GROUP BY step)",
+    },
+    {
+        "question": "How many fraud transactions had a receiver balance of zero before the transaction?",
+        "sql": "SELECT COUNT(*) FROM transactions WHERE is_fraud = 1 AND old_balance_dest = 0",
+    },
+    {
+        "question": "How many transactions are there per type among steps greater than 700?",
+        "sql": "SELECT type, COUNT(*) FROM transactions WHERE step > 700 GROUP BY type",
+    },
+    {
+        "question": "How many transactions left the sender with a balance of zero after the transaction?",
+        "sql": "SELECT COUNT(*) FROM transactions WHERE new_balance_orig = 0",
+    },
+    {
+        "question": "What is the smallest transaction amount that is greater than zero?",
+        "sql": "SELECT MIN(amount) FROM transactions WHERE amount > 0",
+    },
+    {
+        "question": "What is the average sender balance before the transaction among fraud transactions?",
+        "sql": "SELECT AVG(old_balance_orig) FROM transactions WHERE is_fraud = 1",
+    },
+]
+
+SETS = {"main": EVAL_SET, "held-out": HELD_OUT_SET}
+
+
 def _normalise(value: object) -> object:
     if value is None or (not isinstance(value, str) and pd.isna(value)):
         return None
@@ -229,13 +283,15 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--db", default="data/processed/paysim.duckdb")
     parser.add_argument("--models", nargs="+", default=["qwen2.5-coder:3b"])
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--out", default="artifacts/assistant_eval.json")
+    parser.add_argument("--set", dest="which", choices=list(SETS), default="main")
+    parser.add_argument("--out", default=None)
     args = parser.parse_args(argv)
 
     llms = {name: ollama_chat(name) for name in args.models}
-    results = evaluate_models(args.db, llms, limit=args.limit)
+    results = evaluate_models(args.db, llms, eval_set=SETS[args.which], limit=args.limit)
 
-    out = Path(args.out)
+    suffix = "" if args.which == "main" else "_held_out"
+    out = Path(args.out or f"artifacts/assistant_eval{suffix}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(results, indent=2), encoding="utf-8")
 

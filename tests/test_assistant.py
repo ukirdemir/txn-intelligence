@@ -5,6 +5,7 @@ import pytest
 from txn_intelligence.data import write_duckdb
 from txn_intelligence.eval_assistant import (
     EVAL_SET,
+    HELD_OUT_SET,
     evaluate_models,
     format_table,
     results_match,
@@ -126,6 +127,16 @@ def test_eval_questions_unique():
 
 def test_reference_sql_valid_and_runs(db_path):
     for item in EVAL_SET:
+        run_query(db_path, validate_sql(item["sql"]), max_rows=1000)
+
+
+def test_held_out_set_is_separate_and_valid(db_path):
+    main_questions = {i["question"] for i in EVAL_SET}
+    held = [i["question"] for i in HELD_OUT_SET]
+    assert len(HELD_OUT_SET) == 12
+    assert len(set(held)) == len(held)
+    assert not main_questions & set(held)
+    for item in HELD_OUT_SET:
         run_query(db_path, validate_sql(item["sql"]), max_rows=1000)
 
 
