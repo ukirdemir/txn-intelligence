@@ -76,7 +76,7 @@ The 20:1 ratio between a missed fraud and a false alert drives the threshold. It
 
 ## 7. Scope and milestones
 
-See [ROADMAP.md](ROADMAP.md). Done: data layer, baseline, model comparison, ablation, scoring API, Docker. Planned: drift monitoring (M5), LLM assistant (M6), final write-up (M7).
+See [ROADMAP.md](ROADMAP.md). Done: data layer, baseline, model comparison, ablation, scoring API, Docker. Also done: drift monitoring (M5), local LLM assistant (M6). Planned: final write-up (M7).
 
 ## 8. Risks and open questions
 

@@ -28,11 +28,11 @@ TODO: performance by amount band, transaction type, and other slices.
 ## Limitations and risks
 - Synthetic data: PaySim fraud follows a simple script, so scores overstate real-world performance.
 - Performance depends almost entirely on one simulator pattern (the transaction amount exactly equals the sender's balance, which never happens for legitimate transactions in this dataset); see the feature ablation and the rule baseline.
-- Fraud rate differs between periods (test period 0.33%), and no drift handling exists yet.
+- Fraud rate differs between periods (test period 0.33%) and between days (daily fraud share from 0.05% to over 4%, because legitimate volume collapses on some days while fraud keeps arriving). Drift is monitored in batch (`monitor.py`); nothing retrains or adapts automatically.
 - Cost values are assumptions, and the chosen threshold depends on them.
 - No fairness, explainability or label-delay analysis yet.
 - Single dataset, single split, no confidence intervals.
 - Scores are not calibrated probabilities (class-weighted training). Calibrate on the validation period (for example isotonic regression) before using them as probabilities.
 
 ## Maintenance
-TODO: retraining trigger and monitoring plan.
+Monitoring: run `monitor.py` daily against a reference period; read score PSI and alerts per 1,000 first, then input PSI. Suggested review triggers (assumed, to be tuned on real traffic): score PSI above 0.25 or alerts per 1,000 more than 3 times the reference. TODO: retraining trigger, and delayed-label recall once labels arrive.

@@ -2,7 +2,7 @@
 
 Fraud/anomaly detection and spending insights for card transactions, built as a small end-to-end ML product: data, model, SQL analytics, cost-aware evaluation, API, and monitoring.
 
-> **Status:** data layer, models, feature ablation, scoring API and Docker are done. The LLM assistant and drift monitoring are planned. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status:** data layer, models, feature ablation, scoring API and Docker are done. The local LLM assistant and drift monitoring are done. See [docs/ROADMAP.md](docs/ROADMAP.md).
 > **Data:** public or synthetic transaction data only. No real personal financial data is used or committed.
 
 ## Problem
@@ -49,6 +49,27 @@ Cost per 1,000 transactions when a missed fraud costs 10, 100 or 500 (false aler
 | 500 (100:1) | 49.6 | 174.4 | 9.6 |
 
 Gradient boosting has the lowest cost at every ratio from 2:1 to 100:1, but its advantage over the rule shrinks as misses get cheaper (17% lower at 2:1, 81% lower at 100:1). It flags the same transactions at every ratio because PaySim fraud is almost perfectly separable, so on real data the threshold would matter far more.
+
+### Drift monitoring
+
+`monitor.py` compares each day of the test period with the validation period (the reference) using PSI and the KS statistic on every model input and on the score, plus alerts per 1,000. It needs no labels. PSI bands (under 0.1 stable, 0.1 to 0.25 watch, over 0.25 investigate) are conventions, and KS is reported as a statistic, not a p-value.
+
+```bash
+python -m txn_intelligence.monitor
+python -m txn_intelligence.monitor --simulate-shift amount_x3
+python -m txn_intelligence.monitor --simulate-shift type_mix
+```
+
+**PaySim is not stationary.** Fraud arrives at a steady 220 to 316 cases a day, but legitimate volume collapses on some days (days 2 to 4 and 17 to 30), so the daily fraud share swings from 0.05% to over 4% and the last day is all fraud (`sql/02_fraud_rate_by_day.sql`). In the test period, days 15 and 16 (375k and 421k rows) look like the reference (score PSI at most 0.001), while days 17 to 29 (8k to 59k rows) flag 4 to 32 alerts per 1,000 against 0.61 in the reference. The monitor reports this correctly. Almost every day also shows `investigate` because the hour-of-day mix changes, which makes the overall status a blunt signal on this dataset: read the score PSI and the alert rate first. I expected little drift before running this and was wrong.
+
+To check that the monitor detects problems at all, one day (day 29) is artificially shifted and compared with the same day unshifted:
+
+| Injected shift | Score PSI | Alerts per 1k | Largest feature PSI increases |
+|---|---|---|---|
+| Amounts multiplied by 3 | 0.150 to 0.340 | 23.31 to 0.18 | `log_amount` 0.013 to 0.577 |
+| Half the rows set to TRANSFER | 0.150 to 0.161 | 23.31 to 23.31 | `type_TRANSFER` 0.000 to 1.176 |
+
+Tripling amounts breaks the "amount equals balance" pattern, so the model silently stops flagging; both the score drift and the input drift show it. Changing the type mix does not move the score or alerts, because the model barely uses type, yet the input PSI catches it. Monitoring inputs and scores together therefore matters. These shifts are artificial, and PSI and KS detect change in inputs and scores, not loss of accuracy; real monitoring also needs delayed labels. The last day has too few rows (282) and is skipped by the 1,000-row minimum.
 
 Example `/score` response for a transfer that sends the sender's whole balance:
 
@@ -163,7 +184,7 @@ Failures in the first run were wrong queries, not invalid SQL. Both models misse
 - **LLM layer (in progress):** a local-model assistant that answers questions about the transactions through validated, read-only SQL (stage 1 written; see above).
 - **SQL analytics:** DuckDB queries over the transaction table (`sql/`).
 - **Serving:** FastAPI service in Docker with a `/score` endpoint.
-- **Monitoring (planned):** drift checks on score and feature distributions.
+- **Monitoring:** batch drift checks on score, feature distributions and alert rate (`monitor.py`).
 
 ## Quickstart
 
@@ -206,4 +227,4 @@ data/                   data instructions (data itself is gitignored)
 
 ## Limitations
 
-PaySim is synthetic and its fraud follows a simple pattern, so these results do not transfer to real fraud. Single run, no confidence intervals. Costs are assumed. Scores are not calibrated probabilities. There is no drift monitoring or real-time feature store yet.
+PaySim is synthetic and its fraud follows a simple pattern, so these results do not transfer to real fraud. Single run, no confidence intervals. Costs are assumed. Scores are not calibrated probabilities. Drift monitoring is a batch CLI, not a scheduled service, and there is no real-time feature store. The test period is not uniform: the daily fraud share ranges from 0.05% to over 4%, so the 0.33% headline hides large day-to-day differences.
