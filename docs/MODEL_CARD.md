@@ -20,7 +20,7 @@ With post-transaction balances included, MLP and gradient boosting reached PR-AU
 
 Feature ablation (gradient boosting, PR-AUC): all features 0.999; without destination features 1.000; without transaction type 0.999; without the explicit account-emptying features 0.922; without any origin-balance information 0.526; amount, hour and type only 0.263. Permutation importance is concentrated in `orig_would_be_emptied` and `amount_to_orig_balance`.
 
-TODO: bootstrap confidence intervals.
+Bootstrap 95% intervals on test metrics (rows and day blocks) are in the README; the day-block intervals are wider and preferred. They cover test-set sampling only.
 
 ## Evaluation by slice
 TODO: performance by amount band, transaction type, and other slices.
@@ -31,7 +31,7 @@ TODO: performance by amount band, transaction type, and other slices.
 - Fraud rate differs between periods (test period 0.33%) and between days (daily fraud share from 0.05% to over 4%, because legitimate volume collapses on some days while fraud keeps arriving). Drift is monitored in batch (`monitor.py`); nothing retrains or adapts automatically.
 - Cost values are assumptions, and the chosen threshold depends on them.
 - No fairness, explainability or label-delay analysis yet.
-- Single dataset, single split, no confidence intervals.
+- Single dataset and split; intervals cover test sampling only, not retraining or threshold variance.
 - Scores are not calibrated probabilities (class-weighted training). Calibrate on the validation period (for example isotonic regression) before using them as probabilities.
 
 ## Maintenance

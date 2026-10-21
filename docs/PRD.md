@@ -87,7 +87,7 @@ See [ROADMAP.md](ROADMAP.md). Done: data layer, baseline, model comparison, abla
 | Scores are not calibrated probabilities | Cannot be read as "probability of fraud" | Calibrate on validation data before any probability use |
 | Label delay and drift | Fraud labels arrive late and patterns change | Drift monitoring (M5); retraining trigger |
 | Fairness and explainability | A regulated setting needs both | Not analysed yet; add slice-level metrics and reason codes |
-| Single run | No uncertainty on the reported numbers | Bootstrap confidence intervals |
+| Single run | Training and threshold variance not measured | Bootstrap intervals added for test sampling; repeated training runs still open |
 | Pickled model bundle | Loading untrusted pickles is unsafe | Load only self-built bundles; consider a safer format |
 
 ## 9. Rollout plan (if this were a real product)

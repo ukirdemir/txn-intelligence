@@ -23,6 +23,19 @@ Held-out test period (last 20% of PaySim by time: 1.27M transactions, 4,254 frau
 
 **Read these with care.** PaySim is synthetic and its fraud follows a simple script (full-balance transfers and cash-outs), so near-perfect scores say more about the simulator than about real-world fraud. A first run that also used post-transaction balances scored even higher (PR-AUC 1.000 for both the MLP and gradient boosting) and was discarded as unrealistic, because those balances are not known before approval. Gradient boosting beats the MLP here, which is common on tabular data. The one-line rule in the second row beats both the logistic regression and the MLP on cost. Gradient boosting is better still (cost 4.6 against 12.5, 16 missed frauds against 118), so the learned model adds real but modest value over the rule. A looser rule (amount greater than or equal to the balance) fails completely, because it matches 81% of legitimate transactions. Costs use placeholder values (see `docs/PRD.md`).
 
+### Uncertainty (bootstrap)
+
+95% percentile intervals from 1,000 bootstrap replicates of the test period (thresholds fixed from validation; models not retrained, so only test-set sampling is covered). Rows are resampled in two ways: individually, and in whole-day blocks. Because PaySim days differ sharply in volume and fraud share, the day-block intervals are the ones to trust.
+
+| Model | Cost / 1k, rows | Cost / 1k, day blocks | Recall, day blocks | PR-AUC, day blocks |
+|---|---|---|---|---|
+| Rule: amount equals balance | 12.5 [11.0, 14.2] | 12.5 [6.6, 38.6] | 0.972 [0.965, 0.980] | 0.972 [0.965, 0.980] |
+| Logistic regression | 77.4 [73.2, 81.8] | 77.4 [46.7, 213.8] | 0.809 [0.798, 0.820] | 0.817 [0.762, 0.898] |
+| PyTorch MLP | 28.3 [25.7, 30.9] | 28.3 [16.7, 78.7] | 0.933 [0.926, 0.939] | 0.970 [0.954, 0.986] |
+| Gradient boosting | 4.6 [4.0, 5.2] | 4.6 [2.4, 14.6] | 0.996 [0.994, 0.998] | 0.999 [0.998, 1.000] |
+
+Cost and alert rates are much less certain than the row bootstrap suggests (gradient boosting: 4.0 to 5.2 by rows, 2.4 to 14.6 by days), because a few high-fraud-share days dominate. Recall barely changes between the two methods. The ranking is robust: models share the same resamples, and gradient boosting is cheaper than the rule, logistic regression and the MLP in 100% of replicates under both methods. The paired cost gap to the rule is 7.9 per 1k (95% interval 4.1 to 24.0 by days), so the gain over the one-line rule is real but its size is uncertain. With only about 17 test days the day-block intervals are themselves rough. Run with `python -m txn_intelligence.bootstrap [--method days]`.
+
 ### What drives the score (feature ablation)
 
 Gradient boosting, test period, pre-approval features, with feature groups removed:
@@ -36,7 +49,7 @@ Gradient boosting, test period, pre-approval features, with feature groups remov
 | Without any origin-balance information | 0.526 | 164.9 |
 | Only amount, hour and type | 0.263 | 300.8 |
 
-Permutation importance puts almost all of the signal in two features: `orig_would_be_emptied` (PR-AUC drop 0.994) and `amount_to_orig_balance` (0.990). The decisive pattern is a transaction whose amount exactly equals the sender's balance. Among TRANSFER and CASH_OUT transactions with a positive balance, that holds for 8,018 of 8,172 fraud cases and for none of 1,453,655 legitimate ones, while the looser "amount greater than or equal to balance" holds for 81% of legitimate cases (PaySim does not stop legitimate transactions from exceeding the balance). Importance is shared between the two correlated features, so read the individual numbers loosely. Removing the explicit features hurts only partly because the model can rebuild them from `log_amount` and `log_old_balance_orig`. Destination features, transaction type and hour add essentially nothing once balance information is present. This is a property of PaySim's simulated fraud, not evidence the approach would work on real card fraud. Single run, no confidence intervals yet.
+Permutation importance puts almost all of the signal in two features: `orig_would_be_emptied` (PR-AUC drop 0.994) and `amount_to_orig_balance` (0.990). The decisive pattern is a transaction whose amount exactly equals the sender's balance. Among TRANSFER and CASH_OUT transactions with a positive balance, that holds for 8,018 of 8,172 fraud cases and for none of 1,453,655 legitimate ones, while the looser "amount greater than or equal to balance" holds for 81% of legitimate cases (PaySim does not stop legitimate transactions from exceeding the balance). Importance is shared between the two correlated features, so read the individual numbers loosely. Removing the explicit features hurts only partly because the model can rebuild them from `log_amount` and `log_old_balance_orig`. Destination features, transaction type and hour add essentially nothing once balance information is present. This is a property of PaySim's simulated fraud, not evidence the approach would work on real card fraud. Single training run (the bootstrap above covers test sampling only).
 
 ### Cost sensitivity
 
@@ -227,4 +240,4 @@ data/                   data instructions (data itself is gitignored)
 
 ## Limitations
 
-PaySim is synthetic and its fraud follows a simple pattern, so these results do not transfer to real fraud. Single run, no confidence intervals. Costs are assumed. Scores are not calibrated probabilities. Drift monitoring is a batch CLI, not a scheduled service, and there is no real-time feature store. The test period is not uniform: the daily fraud share ranges from 0.05% to over 4%, so the 0.33% headline hides large day-to-day differences.
+PaySim is synthetic and its fraud follows a simple pattern, so these results do not transfer to real fraud. Single training run; confidence intervals cover test-set sampling only, not training or threshold variance. Costs are assumed. Scores are not calibrated probabilities. Drift monitoring is a batch CLI, not a scheduled service, and there is no real-time feature store. The test period is not uniform: the daily fraud share ranges from 0.05% to over 4%, so the 0.33% headline hides large day-to-day differences.
