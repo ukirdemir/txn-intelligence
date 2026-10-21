@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from . import __version__
 from .config import MODEL_PATH
+from .explain import explain as explain_score
 from .serving import load_bundle, score_transaction
 
 
@@ -44,6 +45,8 @@ class Score(BaseModel):
     threshold: float
     rule_flag: bool
     model_version: str
+    reasons: list[str] | None = None
+    note: str | None = None
 
 
 @app.get("/health")
@@ -56,9 +59,13 @@ def health() -> dict:
     }
 
 
-@app.post("/score", response_model=Score)
-def score(txn: Transaction) -> Score:
+@app.post("/score", response_model=Score, response_model_exclude_none=True)
+def score(txn: Transaction, explain: bool = False) -> Score:
     bundle = app.state.bundle
     if bundle is None:
         raise HTTPException(status_code=503, detail="Model not loaded; train it first")
-    return Score(**score_transaction(bundle, txn.model_dump()))
+    data = txn.model_dump()
+    result = score_transaction(bundle, data)
+    if explain:
+        result = {**result, **explain_score(data, result)}
+    return Score(**result)

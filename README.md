@@ -92,6 +92,8 @@ $body = '{"step": 10, "type": "TRANSFER", "amount": 181.0, "old_balance_orig": 1
 Invoke-RestMethod -Uri http://localhost:8000/score -Method Post -ContentType "application/json" -Body $body
 ```
 
+Add `?explain=true` to `/score` to also get `reasons` (score versus threshold, transaction type, whether the amount equals or exceeds the sender's balance, receiver balance, and whether the one-line rule agrees) and a `note`. The reasons are built by code from the request and the decision, with no LLM. They describe signals present in the input; they are not a per-transaction attribution of what drove the model's score.
+
 The response contains a fraud score (a ranking score, not a calibrated probability, because the model is trained with class weights), the cost-tuned decision (`flagged`), and `rule_flag`, the one-line benchmark rule, so you can see where the model and the rule disagree. Interactive docs are at `http://localhost:8000/docs`.
 
 With Docker (the image excludes torch; train the model first so `artifacts/model.joblib` exists):
