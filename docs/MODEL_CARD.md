@@ -32,7 +32,7 @@ TODO: performance by amount band, transaction type, and other slices.
 - Cost values are assumptions, and the chosen threshold depends on them.
 - No fairness, explainability or label-delay analysis yet.
 - Single dataset and split; intervals cover test sampling only, not retraining or threshold variance.
-- Scores are not calibrated probabilities (class-weighted training). Calibrate on the validation period (for example isotonic regression) before using them as probabilities.
+- Scores are not calibrated probabilities (class-weighted training; mean test score 0.0052 against an observed fraud rate of 0.0033). Isotonic and Platt maps fitted on validation fix the average level on test (see README), but PaySim scores are nearly binary (4 of 1.27M test rows fall between 0.01 and 0.99), so mid-range calibration is untested, and the maps would not survive a real shift in fraud share. The API therefore serves the ranking score only.
 
 ## Maintenance
 Monitoring: run `monitor.py` daily against a reference period; read score PSI and alerts per 1,000 first, then input PSI. Suggested review triggers (assumed, to be tuned on real traffic): score PSI above 0.25 or alerts per 1,000 more than 3 times the reference. TODO: retraining trigger, and delayed-label recall once labels arrive.

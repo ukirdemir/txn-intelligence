@@ -63,6 +63,20 @@ Cost per 1,000 transactions when a missed fraud costs 10, 100 or 500 (false aler
 
 Gradient boosting has the lowest cost at every ratio from 2:1 to 100:1, but its advantage over the rule shrinks as misses get cheaper (17% lower at 2:1, 81% lower at 100:1). It flags the same transactions at every ratio because PaySim fraud is almost perfectly separable, so on real data the threshold would matter far more.
 
+### Calibration
+
+The served score is a ranking score: the model is trained with class weights, so it overstates the fraud rate (mean score 0.0052 on the test period against an observed 0.0033). `calibrate.py` fits isotonic and Platt maps on the validation period and checks them on test:
+
+| Method | Brier | ECE | Mean predicted (observed 0.00334) |
+|---|---|---|---|
+| Raw score | 0.000056 | 0.00189 | 0.00522 |
+| Isotonic | 0.000011 | 0.00001 | 0.00333 |
+| Platt | 0.000034 | 0.00005 | 0.00339 |
+
+Calibration fixes the average level (and by period: raw scores overstate the fraud rate 3.7 times on high-volume days, isotonic is within 2%). It does not change ranking, recall or PR-AUC, and the validation-tuned threshold gives the same cost (4.6 per 1k, 16 missed). A threshold taken from the cost matrix alone (flag above 5 / (5 + 100 − 1) = 0.048) gave 4.3 per 1k and 12 missed on isotonic probabilities, but that difference is 4 transactions and well inside the bootstrap intervals, so it is not evidence of an improvement.
+
+Read this with care. PaySim scores are almost binary: of 1.27M test rows, 1,268,282 sit near 0, 4,238 near 1 and only 4 in between, so the reliability curve says nothing about mid-range probabilities. Isotonic outputs exactly 0 and 1, which overstates certainty (its log loss is worse than Platt's). The calibration also held up across fraud shares (validation 0.06%, test 0.33%, thin-volume days 0.77%) because the data is nearly separable; on real data a shift in fraud share would break it. For these reasons the API keeps returning `fraud_score` and does not expose a calibrated probability. Run with `python -m txn_intelligence.calibrate`.
+
 ### Drift monitoring
 
 `monitor.py` compares each day of the test period with the validation period (the reference) using PSI and the KS statistic on every model input and on the score, plus alerts per 1,000. It needs no labels. PSI bands (under 0.1 stable, 0.1 to 0.25 watch, over 0.25 investigate) are conventions, and KS is reported as a statistic, not a p-value.

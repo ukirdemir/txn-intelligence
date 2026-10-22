@@ -84,7 +84,7 @@ See [ROADMAP.md](ROADMAP.md). Done: data layer, baseline, model comparison, abla
 |---|---|---|
 | Synthetic data | Real fraud adapts and is messier | State the limitation clearly; do not claim transfer |
 | Cost assumptions | Threshold and ranking of models depend on them | Done: sweep from 2:1 to 100:1. Ranking is stable on PaySim, but see the separability caveat in section 6 |
-| Scores are not calibrated probabilities | Cannot be read as "probability of fraud" | Calibrate on validation data before any probability use |
+| Scores are not calibrated probabilities | Cannot be read as "probability of fraud" | Calibration analysis done (isotonic, Platt on validation; results in README); the API still serves the ranking score only |
 | Label delay and drift | Fraud labels arrive late and patterns change | Drift monitoring (M5); retraining trigger |
 | Fairness and explainability | A regulated setting needs both | Not analysed yet; add slice-level metrics and reason codes |
 | Single run | Training and threshold variance not measured | Bootstrap intervals added for test sampling; repeated training runs still open |
