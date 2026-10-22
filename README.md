@@ -155,7 +155,15 @@ Add `&llm=true` to also get an `explanation`: a local model (Ollama; `EXPLAIN_MO
 docker compose up --build
 ```
 
-The API is then at `http://localhost:8765` (host port 8765 is mapped to the container's port 8000 in `docker-compose.yml`; change the left number if it clashes on your machine). A container cannot reach an Ollama server on the host unless `OLLAMA_HOST` points to it, so `llm=true` falls back to the template inside Docker by default.
+The API is then at `http://localhost:8765` (host port 8765 is mapped to the container's port 8000 in `docker-compose.yml`; change the left number if it clashes on your machine). **LLM in Docker (optional).** The API image contains no model. A separate `ollama` service, enabled by a Compose profile, serves it, and the API reaches it at `http://ollama:11434`. The Ollama port is not published to the host.
+
+```bash
+docker compose --profile llm up --build -d
+docker compose exec ollama ollama pull qwen2.5-coder:7b
+# then call /score?explain=true&llm=true as above
+```
+
+Models are stored in the `ollama` volume, so the pull happens once (`docker compose down -v` deletes it). The 7b model needs roughly 6 GB of RAM, more than Docker Desktop's default share on some machines; set `EXPLAIN_MODEL=qwen2.5-coder:3b` (and pull that model instead) to use less, although only the 7b model has been tested for the rewrite checks. On CPU the first request is slow while the model loads (`EXPLAIN_TIMEOUT`, default 180 seconds here). Without the profile, or if the model is missing, `llm=true` falls back to the template text and says so in `explanation_source`. The chat page and `ask` are not part of the image, because they run model-written SQL.
 
 The model bundle is a pickle, so scikit-learn is pinned to one exact version (`pyproject.toml`) for training, CI and the image. If you change the pin, retrain the bundle (`train_final`) before building the image, and only load bundles you created yourself.
 

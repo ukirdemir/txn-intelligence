@@ -5,5 +5,23 @@ services:
       - "8765:8000"  # host port 8765 -> container port 8000
     environment:
       - MODEL_PATH=/app/artifacts/model.joblib
+      - OLLAMA_HOST=http://ollama:11434
+      - EXPLAIN_MODEL=${EXPLAIN_MODEL:-qwen2.5-coder:7b}
+      - EXPLAIN_TIMEOUT=${EXPLAIN_TIMEOUT:-180}
     volumes:
       - ./artifacts:/app/artifacts:ro
+
+  # Optional local LLM for ?llm=true. Start with: docker compose --profile llm up
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["llm"]
+    volumes:
+      - ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  ollama:
