@@ -152,7 +152,7 @@ docker compose up --build
 
 The API is then at `http://localhost:8765` (host port 8765 is mapped to the container's port 8000 in `docker-compose.yml`; change the left number if it clashes on your machine).
 
-The model bundle is a pickle: train it with the same scikit-learn version the image installs, and only load bundles you created yourself.
+The model bundle is a pickle, so scikit-learn is pinned to one exact version (`pyproject.toml`) for training, CI and the image. If you change the pin, retrain the bundle (`train_final`) before building the image, and only load bundles you created yourself.
 
 ### Ask your transactions (stage 1: question to SQL)
 
