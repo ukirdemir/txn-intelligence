@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from . import __version__
 from .config import MODEL_PATH
 from .explain import explain as explain_score
+from .nl2sql import ollama_chat
 from .serving import load_bundle, score_transaction
 
 
@@ -47,6 +48,14 @@ class Score(BaseModel):
     model_version: str
     reasons: list[str] | None = None
     note: str | None = None
+    explanation: str | None = None
+    explanation_source: Literal["llm", "template"] | None = None
+
+
+def _explain_llm():
+    """Local LLM for rephrasing; EXPLAIN_MODEL, EXPLAIN_TIMEOUT (seconds) and OLLAMA_HOST set it."""
+    timeout = float(os.environ.get("EXPLAIN_TIMEOUT", "120"))
+    return ollama_chat(os.environ.get("EXPLAIN_MODEL", "qwen2.5-coder:7b"), timeout=timeout)
 
 
 @app.get("/health")
@@ -60,12 +69,12 @@ def health() -> dict:
 
 
 @app.post("/score", response_model=Score, response_model_exclude_none=True)
-def score(txn: Transaction, explain: bool = False) -> Score:
+def score(txn: Transaction, explain: bool = False, llm: bool = False) -> Score:
     bundle = app.state.bundle
     if bundle is None:
         raise HTTPException(status_code=503, detail="Model not loaded; train it first")
     data = txn.model_dump()
     result = score_transaction(bundle, data)
     if explain:
-        result = {**result, **explain_score(data, result)}
+        result = {**result, **explain_score(data, result, _explain_llm() if llm else None)}
     return Score(**result)
